@@ -14,7 +14,7 @@ import os
 def scrape_web(query):
     # Build search query and URL to scrape
     query = query.replace(' ', '+')
-    URL = f"https://google.com/search?q={query}&num=2"
+    URL = f"https://google.com/search?q={query}&num=100"
     print(URL)
 
     # define desktop user-agent
@@ -116,7 +116,7 @@ def scrape(website):
         item['email'] = list(emails)
         print(urls_list)
         print('\n #--------------')
-        return urls_list
+    return urls_list
 
 
         # for anchor in soup.find_all("a"):
@@ -135,7 +135,7 @@ def save(data):
     header = ['title','url','email']
     df = pd.DataFrame(data)
     file_path = r'C:\Users\suen6\PycharmProjects\google-leads-scraper\export_list'
-    base_name = 'email_list'
+    base_name = 'travel_agency'
     file_name = base_name + '.csv'
     counter = 1
     while os.path.exists(os.path.join(file_path, file_name)):
@@ -156,7 +156,7 @@ def main(query):
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    query = 'textrapp'
+    query = '"travel agency","toronto"'
     main(query)
 
 
