@@ -47,11 +47,38 @@ def scrape_url(item):
         response = requests.get(url, timeout=30)  # Set timeout to 30 seconds
         new_emails = set(re.findall(r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.(?:com|au)", response.text, re.I))
 
-        if new_emails:  # Check if any email matches were found
-            soup = BeautifulSoup(response.content, "html.parser")
-            title = soup.title.string
-            item['title'] = title
-            item['emails'] = new_emails
+        if len(new_emails) == 1:  # If only one email is found on the page
+            print('Email found:', new_emails)
+        else:
+            print('No email found, checking for contact page')
+            soup = BeautifulSoup(response.text, 'lxml')
+
+            contact_link = soup.find("a", href=True, text=re.compile('.*contact.*|.*enquir.*|.*get in touch.*', flags=re.IGNORECASE))
+            if contact_link is None:
+                print('No contact page found')
+                print('\n#--------------')
+            else:
+                contact_link = contact_link['href']
+                if re.search(r'.*#.*', contact_link, re.I):
+                    print('This link is not valid')
+                    contact_link = float("NaN")
+                elif contact_link.startswith('/'):
+                    base_url = response.url.rsplit('/', 1)[0]
+                    contact_link = base_url + contact_link
+
+                print('Checking contact page:', contact_link)
+
+                try:
+                    contact_response = requests.get(contact_link, timeout=30)  # Set timeout to 30 seconds
+                    contact_emails = set(re.findall(r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.(?:com|au)", contact_response.text, re.I))
+                    if contact_emails:
+                        print('Email found:', contact_emails)
+                        new_emails.update(contact_emails)
+
+                except (requests.exceptions.MissingSchema, requests.exceptions.ConnectionError):
+                    print(f"Failed to scrape contact page: {contact_link}")
+
+        item['emails'] = new_emails
 
     except (requests.exceptions.MissingSchema, requests.exceptions.ConnectionError) as e:
         print(f"Failed to scrape URL: {item['url']}")
