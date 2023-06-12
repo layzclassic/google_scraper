@@ -88,7 +88,7 @@ def save(emails):
 
     header = ['title', 'url', 'email']
     df = pd.DataFrame(data, columns=header)  # Create DataFrame with specified columns
-    file_path = r'C:\Users\suen6\PycharmProjects\google-leads-scraper\export_list'
+    file_path = r'C:\Users\suen6\PycharmProjects\google-scraper\export_list'
     base_name = 'textr'
     file_name = base_name + '.csv'
     counter = 1

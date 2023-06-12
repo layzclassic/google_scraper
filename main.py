@@ -134,7 +134,7 @@ def scrape(website):
 def save(data):
     header = ['title','url','email']
     df = pd.DataFrame(data)
-    file_path = r'C:\Users\suen6\PycharmProjects\google-leads-scraper\export_list'
+    file_path = r'C:\Users\suen6\PycharmProjects\google-scraper\export_list'
     base_name = 'travel_agency'
     file_name = base_name + '.csv'
     counter = 1
