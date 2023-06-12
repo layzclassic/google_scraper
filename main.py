@@ -49,7 +49,6 @@ def scrape_web(query):
     return results
 
 def scrape(website):
-    ## scraping - the fun part
     new_email_count = 0
     scraped = set()
     unscraped = []

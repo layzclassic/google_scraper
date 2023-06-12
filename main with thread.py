@@ -1,9 +1,9 @@
-import concurrent.futures
-import requests
 from bs4 import BeautifulSoup
+import requests
 import re
 import pandas as pd
 import os
+from concurrent.futures import ThreadPoolExecutor
 import time
 
 def scrape_web(query):
@@ -41,19 +41,21 @@ def scrape_web(query):
         print(row)
     return results
 
-def scrape_url(url):
+def scrape_url(item):
     try:
-        response = requests.get(url)
+        url = item['url']
+        response = requests.get(url, timeout=30)  # Set timeout to 30 seconds
         new_emails = set(re.findall(r"[a-z0-9\.\-+_]+@[a-z0-9\.\-+_]+\.(?:com|au)", response.text, re.I))
-        response.close()  # Close the response to release the connection
 
-        soup = BeautifulSoup(response.content, "html.parser")
-        title = soup.title.string
-        return {'title': title, 'url': url, 'emails': new_emails}
+        if new_emails:  # Check if any email matches were found
+            soup = BeautifulSoup(response.content, "html.parser")
+            title = soup.title.string
+            item['title'] = title
+            item['emails'] = new_emails
 
-    except (requests.exceptions.MissingSchema, requests.exceptions.ConnectionError):
-        print(f"Failed to scrape URL: {url}")
-        return {'title': '', 'url': url, 'emails': set()}
+    except (requests.exceptions.MissingSchema, requests.exceptions.ConnectionError) as e:
+        print(f"Failed to scrape URL: {item['url']}")
+        print(f"Error: {str(e)}")
 
 def scrape(websites):
     print("Scraping URLs for emails...")
@@ -61,35 +63,35 @@ def scrape(websites):
     total_urls = len(websites)
     processed_urls = 0
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        results = executor.map(scrape_url, websites)
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        futures = [executor.submit(scrape_url, item) for item in websites]
 
-    emails = set()
-    for result in results:
-        emails.update(result['emails'])
-        processed_urls += 1
+        for future in futures:
+            try:
+                future.result()  # Wait for each task to complete
+            except Exception as e:
+                print(f"Error occurred: {str(e)}")
 
-        elapsed_time = time.time() - start_time
-        avg_time_per_url = elapsed_time / processed_urls if processed_urls > 0 else 0
-        remaining_urls = total_urls - processed_urls
-        remaining_time = remaining_urls * avg_time_per_url
+            processed_urls += 1
+            elapsed_time = time.time() - start_time
+            avg_time_per_url = elapsed_time / processed_urls if processed_urls > 0 else 0
+            remaining_urls = total_urls - processed_urls
+            remaining_time = remaining_urls * avg_time_per_url
 
-        print(f"Processed {processed_urls}/{total_urls} URLs. Estimated remaining time: {remaining_time:.2f} seconds")
+            print(f"Processed {processed_urls}/{total_urls} URLs. Estimated remaining time: {remaining_time:.2f} seconds")
 
-    return emails
-
-def save(emails):
+def save(websites):
     data = []
-    for email in emails:
+    for item in websites:
         data.append({
-            'title': email['title'],
-            'url': email['url'],
-            'email': email['email']
+            'title': item['title'],
+            'url': item['url'],
+            'email': item.get('emails', set())
         })
 
     header = ['title', 'url', 'email']
-    df = pd.DataFrame(data, columns=header)  # Create DataFrame with specified columns
-    file_path = r'C:\Users\suen6\PycharmProjects\google-scraper\export_list'
+    df = pd.DataFrame(data, columns=header)
+    file_path = r'C:\Users\suen6\PycharmProjects\google_scraper\export_list'
     base_name = 'textr'
     file_name = base_name + '.csv'
     counter = 1
@@ -102,14 +104,11 @@ def save(emails):
 
 def main(query):
     print("Starting web scraping...")
-    websites = [item['url'] for item in scrape_web(query)]
-    emails = scrape(websites)
-    save(emails)
+    websites = scrape_web(query)
+    scrape(websites)
+    save(websites)
     print("Web scraping completed.")
 
 if __name__ == '__main__':
     query = '"travel agency","toronto"'
-    max_workers = 2  # Set the maximum number of worker threads
-    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
-        main(query)
     main(query)
