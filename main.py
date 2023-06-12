@@ -8,11 +8,13 @@ from re import search
 import pandas as pd
 from urllib.parse import urlsplit
 from collections import deque
+import time
+import os
 
 def scrape_web(query):
     # Build search query and URL to scrape
     query = query.replace(' ', '+')
-    URL = f"https://google.com/search?q={query}&num=100"
+    URL = f"https://google.com/search?q={query}&num=2"
     print(URL)
 
     # define desktop user-agent
@@ -38,23 +40,24 @@ def scrape_web(query):
             title = g.find('h3').text
             item = {
                 "title": title,
-                "link": link
+                "url": link
             }
             results.append(item)
 
-    for row in urls_list:
+    for row in results:
         print(row)
+    return results
 
-def scrape():
+def scrape(website):
     ## scraping - the fun part
     new_email_count = 0
     scraped = set()
     unscraped = []
     emails = set()
-    urls_list1 = ['https://thredboskiaccommodation.com.au/']
+    urls_list = website
 
-    for x in urls_list1:
-        url = x
+    for item in urls_list:
+        url = item['url']
         # break each URL apart
         parts = urlsplit(url)
         base_url = "{0.scheme}://{0.netloc}".format(parts)
@@ -110,7 +113,11 @@ def scrape():
                 new_email_count += 1
                 print('email found:', new_emails)
         emails.update(new_emails)
+        item['email'] = list(emails)
+        print(urls_list)
         print('\n #--------------')
+        return urls_list
+
 
         # for anchor in soup.find_all("a"):
         #   if 'contact' in anchor:
@@ -124,20 +131,32 @@ def scrape():
         # if not link.endswith(".gz"):
         #   if not link in unscraped and not link in scraped:
         #       unscraped.append(link)
+def save(data):
+    header = ['title','url','email']
+    df = pd.DataFrame(data)
+    file_path = r'C:\Users\suen6\PycharmProjects\google-leads-scraper\export_list'
+    base_name = 'email_list'
+    file_name = base_name + '.csv'
+    counter = 1
+    while os.path.exists(os.path.join(file_path, file_name)):
+        file_name = base_name + str(counter) + '.csv'
+        counter += 1
+    file_pathname = os.path.join(file_path, file_name)
+    df.to_csv(file_pathname, columns=header,index=False)
 
-    # df = pd.DataFrame(emails, columns=["Email"])
-    # df.to_csv('email.csv', index=False)
+
 
     # files.download("email.csv")
 
 
 def main(query):
     website = scrape_web(query)
-    scrape(website)
+    list = scrape(website)
+    save(list)
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':
-    query = 'lol'
+    query = 'textrapp'
     main(query)
 
 
