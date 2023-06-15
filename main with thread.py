@@ -119,7 +119,7 @@ def save(websites):
     header = ['title', 'url', 'email']
     df = pd.DataFrame(data, columns=header)
     file_path = r'C:\Users\suen6\PycharmProjects\google_scraper\export_list'
-    base_name = 'textr'
+    base_name = 'travel blogger'
     file_name = base_name + '.csv'
     counter = 1
     while os.path.exists(os.path.join(file_path, file_name)):
@@ -137,5 +137,5 @@ def main(query):
     print("Web scraping completed.")
 
 if __name__ == '__main__':
-    query = '"travel agency","toronto"'
+    query = '"tavel blogger" AND "blog"'
     main(query)
