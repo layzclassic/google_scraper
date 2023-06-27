@@ -1,9 +1,13 @@
 import requests
 from bs4 import BeautifulSoup
 from openpyxl import Workbook
+from openpyxl.utils.dataframe import dataframe_to_rows
+import pandas as pd
+
+from openpyxl.styles import Font
 
 class Website:
-    def __init__(self, title=None, url=None, domain=None, byline_date=None, description=None, sitelinks=None, rich_attributes=None):
+    def __init__(self, title=None, url=None, domain=None, byline_date=None, description=None, sitelinks=None, rich_attributes=None, brand_display=None):
         self.title = title
         self.url = url
         self.domain = domain
@@ -11,6 +15,8 @@ class Website:
         self.description = description
         self.sitelinks = sitelinks
         self.rich_attributes = rich_attributes
+        self.brand_display = brand_display
+
 
 def scrape_google_search(query, num_results):
     query = query.replace(' ', '+')
@@ -25,12 +31,18 @@ def scrape_google_search(query, num_results):
         "websites": []
     }
 
-    # Scrape websites
-    website_results = soup.select("div.kvH3mc.BToiNc.UK95Uc, div.BYM4Nd")
-    for website_result in website_results:
-        website_data = {}
+    try:
+        # Scrape websites
+        website_results = soup.select("div.MjjYud div.g")
+        for website_result in website_results:
+            website_data = {}
 
-        if website_result.has_attr("class") and "kvH3mc" in website_result["class"]:
+            # Check if brand display is present
+            brand_display_element = website_result.find_previous_sibling("div", class_="hlcw0c")
+            brand_display = bool(brand_display_element)
+
+            website_data["brand_display"] = brand_display
+
             # Scrape title
             title_element = website_result.select_one("h3.LC20lb.DKV0Md")
             if title_element:
@@ -66,55 +78,13 @@ def scrape_google_search(query, num_results):
 
                 website_data["sitelinks"] = sitelinks
 
-        if website_result.has_attr("class") and "BYM4Nd" in website_result["class"]:
-            # Scrape title
-            title_element = website_result.select_one("h3 a")
-            if title_element:
-                website_data["title"] = title_element.text
-
-            # Scrape URL
-            url_element = website_result.select_one("h3 a")
-            if url_element and "href" in url_element.attrs:
-                website_data["url"] = url_element["href"]
-
-            # Scrape description
-            description_element = website_result.select_one("div.zz3gNc")
-            if description_element:
-                website_data["description"] = description_element.text
-
-            # Scrape sitelinks
-            sitelinks_element = website_result.select("div.usJj9c")
-            if sitelinks_element:
-                sitelinks = []
-                for sitelink_element in sitelinks_element:
-                    sitelink = {}
-
-                    # Scrape title
-                    title = sitelink_element.select_one("h3")
-                    if title:
-                        sitelink["title"] = title.text
-
-                    # Scrape URL
-                    url = sitelink_element.select_one("h3 a")
-                    if url and "href" in url.attrs:
-                        sitelink["url"] = url["href"]
-
-                    # Scrape description
-                    description = sitelink_element.select_one("div.zz3gNc")
-                    if description:
-                        sitelink["description"] = description.text
-
-                    sitelinks.append(sitelink)
-
-                website_data["sitelinks"] = sitelinks
-
-        results["websites"].append(Website(**website_data))
+            website = Website(**website_data)
+            results["websites"].append(website)
+            print("Scraped:", website.__dict__)
+    except Exception as e:
+        print(f"Error occurred during web scraping: {str(e)}")
 
     return results
-
-
-from openpyxl.utils.dataframe import dataframe_to_rows
-import pandas as pd
 
 def save_to_xlsx(data, base_name, file_path):
     workbook = Workbook()
@@ -122,27 +92,33 @@ def save_to_xlsx(data, base_name, file_path):
     # Create a separate worksheet for each class
     for class_name, class_data in data.items():
         worksheet = workbook.create_sheet(title=class_name)
-        worksheet.append(["Type", "Title", "URL", "Domain", "Byline Date", "Description", "Sitelinks", "Rich Attributes"])
+        worksheet.append(["Type", "Title", "URL", "Domain", "Byline Date", "Description", "Sitelinks", "Rich Attributes", "Brand Display"])
 
         if class_name == "websites":
             for website in class_data:
-                sitelinks = pd.DataFrame(website.sitelinks) if website.sitelinks else pd.DataFrame()
-                rich_attributes = pd.DataFrame(website.rich_attributes) if website.rich_attributes else pd.DataFrame()
+                sitelinks = website.sitelinks if website.sitelinks else {}
+                rich_attributes = website.rich_attributes if website.rich_attributes else {}
 
-                # Append each row of the sitelinks dataframe
-                for row in dataframe_to_rows(sitelinks, index=False, header=False):
-                    worksheet.append(["Website", website.title, website.url, website.domain, website.byline_date, website.description, *row, ""])
+                # Append the main website row
+                worksheet.append(["Website", website.title, website.url, website.domain, website.byline_date, website.description, "", "", website.brand_display])
 
-                # Append each row of the rich attributes dataframe
-                for row in dataframe_to_rows(rich_attributes, index=False, header=False):
-                    worksheet.append(["", "", "", "", "", "", "", *row])
+                # Append each sitelink row
+                for i in range(max(len(sitelinks.get("questions", [])), len(sitelinks.get("answers", [])), len(sitelinks.get("dates", [])))):
+                    question = sitelinks.get("questions", [""])[i] if sitelinks.get("questions") else ""
+                    answer = sitelinks.get("answers", [""])[i] if sitelinks.get("answers") else ""
+                    date = sitelinks.get("dates", [""])[i] if sitelinks.get("dates") else ""
+                    worksheet.append(["", "", "", "", "", "", question, answer, ""])
+
+                # Append each rich attribute row
+                for attribute, value in rich_attributes.items():
+                    worksheet.append(["", "", "", "", "", "", "", attribute, value])
 
     # Remove the default sheet created and save the workbook
     workbook.remove(workbook["Sheet"])
     workbook.save(file_path)
 
 # Example usage
-query = "textrapp"
+query = "esim"
 num_results = 15
 data = scrape_google_search(query, num_results)
 base_name = "google_search_results"
